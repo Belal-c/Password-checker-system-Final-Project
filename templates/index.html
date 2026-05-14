@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Password Strength Checker System</title>
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+    <style>
+        body {
+            font-family: Arial;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 25px;
+            border-radius: 12px;
+            width: 350px;
+            color: #fff;
+        }
+
+        .input-box {
+            position: relative;
+        }
+
+        input {
+            width: 100%;
+            padding: 10px 40px 10px 10px;
+            border-radius: 8px;
+            border: none;
+            outline: none;
+            box-sizing: border-box;
+        }
+
+        /* ICON */
+        .toggle {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+        }
+
+        /* BAR */
+        .bar {
+            height: 8px;
+            background: #ddd;
+            margin-top: 10px;
+            border-radius: 5px;
+        }
+
+        #barFill {
+            height: 100%;
+            width: 0%;
+        }
+
+        /* RULES */
+        .rules span {
+            display: flex;
+            gap: 8px;
+            margin: 5px 0;
+        }
+
+        .ok {
+            color: #2ecc71;
+        }
+
+        .bad {
+            color: #ff6b6b;
+        }
+
+        /* ALERT */
+        .alert {
+            background: #ff4d4d22;
+            border-left: 4px solid #ff4d4d;
+            padding: 10px;
+            margin-top: 10px;
+            border-radius: 8px;
+            color: #ffffff;
+        }
+    </style>
+
+</head>
+
+<body>
+
+    <div class="container">
+        <h3>Password Checker System</h3>
+
+        <div class="input-box">
+            <!-- ✅ max length -->
+            <input type="password" id="password" maxlength="64" placeholder="Enter password">
+            <i class="fa-solid fa-eye toggle" id="eye" onclick="togglePassword()"></i>
+        </div>
+
+        <div class="bar">
+            <div id="barFill"></div>
+        </div>
+
+        <div id="strength"></div>
+        <div id="time"></div>
+
+        <div class="rules">
+            <span id="length"><i class="fa-solid fa-circle-xmark"></i> 8+ chars</span>
+            <span id="upper"><i class="fa-solid fa-circle-xmark"></i> Uppercase</span>
+            <span id="lower"><i class="fa-solid fa-circle-xmark"></i> Lowercase</span>
+            <span id="number"><i class="fa-solid fa-circle-xmark"></i> Number</span>
+            <span id="symbol"><i class="fa-solid fa-circle-xmark"></i> Symbol</span>
+        </div>
+
+        <div id="recommendations"></div>
+    </div>
+
+    <script>
+        const passwordInput = document.getElementById("password");
+
+        function togglePassword() {
+            const eye = document.getElementById("eye");
+
+            if (passwordInput.type === "password") {
+                passwordInput.type = "text";
+                eye.classList.replace("fa-eye", "fa-eye-slash");
+            } else {
+                passwordInput.type = "password";
+                eye.classList.replace("fa-eye-slash", "fa-eye");
+            }
+        }
+
+        passwordInput.addEventListener("input", () => {
+            let password = passwordInput.value;
+
+            // 🔐 حماية JS
+            if (password.length > 64) {
+                password = password.slice(0, 64);
+                passwordInput.value = password;
+            }
+
+            updateRule("length", password.length >= 8);
+            updateRule("upper", /[A-Z]/.test(password));
+            updateRule("lower", /[a-z]/.test(password));
+            updateRule("number", /[0-9]/.test(password));
+            updateRule("symbol", /[!@#$%^&*]/.test(password));
+
+            fetch("/check_password", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ password })
+            })
+                .then(res => res.json())
+                .then(data => {
+
+                    const colors = ["#ff4d4d", "#ff944d", "#ffd11a", "#66cc66", "#2ecc71"];
+                    const texts = ["Very Weak", "Weak", "Fair", "Strong", "Very Strong"];
+
+                    barFill.style.width = ((data.score + 1) * 20) + "%";
+                    barFill.style.background = colors[data.score];
+
+                    strength.innerText = "Strength: " + texts[data.score];
+                    time.innerText = "Crack time: " + data.crack_time;
+
+                    let rec = "";
+
+                    // 🚨 تحذير إذا موجودة في DB
+                    if (data.is_weak_db) {
+                        rec += `
+            <div class="alert">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+                This password is found in leaked databases! Do NOT use it.
+            </div>
+            `;
+                    }
+
+                    document.getElementById("recommendations").innerHTML = rec;
+                });
+        });
+
+        function updateRule(id, condition) {
+            const el = document.getElementById(id);
+            const icon = el.querySelector("i");
+
+            if (condition) {
+                el.className = "ok";
+                icon.className = "fa-solid fa-circle-check";
+            } else {
+                el.className = "bad";
+                icon.className = "fa-solid fa-circle-xmark";
+            }
+        }
+    </script>
+
+</body>
+
+</html>

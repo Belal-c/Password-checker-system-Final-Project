@@ -1,0 +1,4 @@
+weak_passwords.db
+__pycache__/
+*.pyc
+db_ready.flag
